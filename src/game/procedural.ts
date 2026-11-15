@@ -113,6 +113,46 @@ export function createSoftShadowTexture(): THREE.CanvasTexture {
   return tex;
 }
 
+export function createHeadlightBeamTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, 128, 256);
+
+  // Longitudinal fade from headlight origin (bottom y=256) to far tip (top y=0)
+  const vGrad = ctx.createLinearGradient(0, 256, 0, 0);
+  vGrad.addColorStop(0.0, 'rgba(220, 248, 255, 0.95)');
+  vGrad.addColorStop(0.18, 'rgba(180, 240, 255, 0.55)');
+  vGrad.addColorStop(0.55, 'rgba(110, 220, 255, 0.18)');
+  vGrad.addColorStop(1.0, 'rgba(80, 200, 255, 0.0)');
+
+  ctx.fillStyle = vGrad;
+  ctx.beginPath();
+  ctx.moveTo(52, 256);
+  ctx.lineTo(76, 256);
+  ctx.lineTo(124, 0);
+  ctx.lineTo(4, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // Soft lateral vignette mask so beam edges feather smoothly
+  ctx.globalCompositeOperation = 'destination-in';
+  const hGrad = ctx.createLinearGradient(0, 0, 128, 0);
+  hGrad.addColorStop(0.0, 'rgba(255,255,255,0)');
+  hGrad.addColorStop(0.28, 'rgba(255,255,255,0.85)');
+  hGrad.addColorStop(0.5, 'rgba(255,255,255,1)');
+  hGrad.addColorStop(0.72, 'rgba(255,255,255,0.85)');
+  hGrad.addColorStop(1.0, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hGrad;
+  ctx.fillRect(0, 0, 128, 256);
+  ctx.globalCompositeOperation = 'source-over';
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 export function createSkyDomeShaderMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     side: THREE.BackSide,

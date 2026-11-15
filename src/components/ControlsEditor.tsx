@@ -12,8 +12,10 @@ import {
 } from 'lucide-react';
 import {
   clampButtonCenter,
+  ControlPreferences,
   ControlShape,
   createDefaultControlsLayout,
+  DEFAULT_CONTROL_PREFS,
   getButtonPixelSize,
   SHAPE_BASE_DIMENSIONS,
   TOUCH_CONTROL_ORDER,
@@ -24,8 +26,9 @@ import {
 
 interface ControlsEditorProps {
   initialLayout: TouchControlsLayout;
+  initialPrefs: ControlPreferences;
   accentHex: string;
-  onSave: (layout: TouchControlsLayout) => void;
+  onSave: (layout: TouchControlsLayout, prefs: ControlPreferences) => void;
   onCancel: () => void;
 }
 
@@ -71,6 +74,7 @@ const PanelButton: React.FC<PanelButtonProps> = ({
       className={`touch-manipulation select-none ${className ?? ''}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
+          e.stopPropagation();
           lastPointerActionAtRef.current = 0;
         }
         onKeyDown?.(e);
@@ -121,11 +125,13 @@ const PanelButton: React.FC<PanelButtonProps> = ({
 
 export const ControlsEditor: React.FC<ControlsEditorProps> = ({
   initialLayout,
+  initialPrefs,
   accentHex,
   onSave,
   onCancel,
 }) => {
   const [draft, setDraft] = useState<TouchControlsLayout>(() => ({ ...initialLayout }));
+  const [draftPrefs, setDraftPrefs] = useState<ControlPreferences>(() => ({ ...initialPrefs }));
   const [selectedId, setSelectedId] = useState<TouchControlId>('left');
   const [dockTop, setDockTop] = useState(true);
   const [viewport, setViewport] = useState(() => ({
@@ -286,8 +292,18 @@ export const ControlsEditor: React.FC<ControlsEditorProps> = ({
     });
   };
 
+  const handleOpacityChange = (newOpacity: number) => {
+    const clampedOpacity = Math.max(0.2, Math.min(1.0, Number(newOpacity.toFixed(2))));
+    setDraftPrefs((prev) => ({ ...prev, opacity: clampedOpacity }));
+  };
+
+  const handleToggleAutoThrottle = () => {
+    setDraftPrefs((prev) => ({ ...prev, autoThrottle: !prev.autoThrottle }));
+  };
+
   const handleResetDefault = () => {
     setDraft(createDefaultControlsLayout(viewport.w, viewport.h));
+    setDraftPrefs({ ...DEFAULT_CONTROL_PREFS });
   };
 
   return (
@@ -341,6 +357,7 @@ export const ControlsEditor: React.FC<ControlsEditorProps> = ({
                 width: `${size.width}px`,
                 height: `${size.height}px`,
                 borderRadius: size.borderRadius,
+                opacity: isDragging ? Math.min(1, draftPrefs.opacity + 0.25) : draftPrefs.opacity,
                 borderColor: isSelected ? accentHex : 'rgba(255, 255, 255, 0.25)',
                 boxShadow: isSelected ? `0 0 0 2px ${accentHex}44` : undefined,
               }}
@@ -353,13 +370,27 @@ export const ControlsEditor: React.FC<ControlsEditorProps> = ({
               }`}
             >
               {renderControlIcon(btn.id, btn.scale, accentHex)}
-              {btn.subLabel && (
+              {btn.id === 'throttle' && draftPrefs.autoThrottle ? (
                 <span
-                  className="font-mono-tabular font-semibold text-slate-200 leading-none mt-1"
-                  style={{ fontSize: `${Math.round(11 * Math.min(1.4, Math.max(0.85, btn.scale)))}px` }}
+                  className="font-mono-tabular font-semibold leading-none mt-1"
+                  style={{
+                    color: accentHex,
+                    fontSize: `${Math.round(10 * Math.min(1.4, Math.max(0.85, btn.scale)))}px`,
+                  }}
                 >
-                  {btn.subLabel}
+                  AUTO
                 </span>
+              ) : (
+                btn.subLabel && (
+                  <span
+                    className="font-mono-tabular font-semibold text-slate-200 leading-none mt-1"
+                    style={{
+                      fontSize: `${Math.round(11 * Math.min(1.4, Math.max(0.85, btn.scale)))}px`,
+                    }}
+                  >
+                    {btn.subLabel}
+                  </span>
+                )
               )}
             </button>
           );
@@ -423,7 +454,7 @@ export const ControlsEditor: React.FC<ControlsEditorProps> = ({
         </div>
 
         {/* Selected Button Controls: Scale Slider (0.7x - 2.0x) + Shape Toggle */}
-        <div className="bg-white/4 border border-white/8 rounded-lg p-3 mb-3 space-y-3">
+        <div className="bg-white/4 border border-white/8 rounded-lg p-3 mb-2.5 space-y-2.5">
           <div className="flex items-center justify-between gap-3">
             <label
               htmlFor="control-scale-slider"
@@ -473,6 +504,61 @@ export const ControlsEditor: React.FC<ControlsEditorProps> = ({
           </div>
         </div>
 
+        {/* Global Touch Preferences: Opacity Slider (20% - 100%) + Auto-Throttle Toggle */}
+        <div className="bg-white/4 border border-white/8 rounded-lg p-3 mb-3 space-y-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <label
+              htmlFor="control-opacity-slider"
+              className="text-xs font-medium text-slate-200 whitespace-nowrap"
+            >
+              Opacity
+            </label>
+            <div className="flex items-center gap-2.5 flex-1 max-w-[260px]">
+              <input
+                id="control-opacity-slider"
+                type="range"
+                min={0.2}
+                max={1.0}
+                step={0.05}
+                value={draftPrefs.opacity}
+                onChange={(e) => handleOpacityChange(parseFloat(e.target.value))}
+                onPointerDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                className="w-full accent-cyan-400 cursor-pointer touch-pan-x"
+              />
+              <span className="font-mono-tabular text-xs font-semibold text-white w-11 text-right">
+                {Math.round(draftPrefs.opacity * 100)}%
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-medium text-slate-200">Auto-Throttle</div>
+              <div className="text-[11px] text-slate-400">
+                Cruise at full speed automatically unless braking
+              </div>
+            </div>
+            <PanelButton
+              role="switch"
+              aria-checked={draftPrefs.autoThrottle}
+              onAction={handleToggleAutoThrottle}
+              className={`h-8 px-3 rounded-lg border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-2 ${
+                draftPrefs.autoThrottle
+                  ? 'bg-[#00e5ff]/20 border-[#00e5ff] text-[#00e5ff]'
+                  : 'bg-white/6 border-white/12 text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-sm ${
+                  draftPrefs.autoThrottle ? 'bg-[#00e5ff]' : 'bg-slate-500'
+                }`}
+              />
+              <span>{draftPrefs.autoThrottle ? 'On' : 'Off'}</span>
+            </PanelButton>
+          </div>
+        </div>
+
         {/* Action Row: Reset to Default | Cancel | Save */}
         <div className="flex items-center justify-between gap-2">
           <PanelButton
@@ -492,7 +578,7 @@ export const ControlsEditor: React.FC<ControlsEditorProps> = ({
               <span>Cancel</span>
             </PanelButton>
             <PanelButton
-              onAction={() => onSave(draft)}
+              onAction={() => onSave(draft, draftPrefs)}
               className="h-9 px-4 flex items-center gap-1.5 rounded-lg bg-[#00e5ff] text-slate-950 text-xs font-semibold hover:bg-[#5ef0ff] active:bg-[#5ef0ff] transition-colors cursor-pointer"
             >
               <Check className="w-3.5 h-3.5" />

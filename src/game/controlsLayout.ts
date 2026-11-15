@@ -237,3 +237,45 @@ export function clearSavedControlsLayout(): void {
     // Ignore storage errors
   }
 }
+
+export interface ControlPreferences {
+  /** Control opacity from 0.2 to 1.0 */
+  opacity: number;
+  /** Automatically hold throttle unless braking */
+  autoThrottle: boolean;
+}
+
+export const CONTROL_PREFS_STORAGE_KEY = 'monolith_drive_control_prefs_v1';
+
+export const DEFAULT_CONTROL_PREFS: ControlPreferences = {
+  opacity: 1.0,
+  autoThrottle: false,
+};
+
+export function loadControlPreferences(): ControlPreferences {
+  try {
+    const raw = window.localStorage.getItem(CONTROL_PREFS_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_CONTROL_PREFS };
+    const parsed = JSON.parse(raw) as Partial<ControlPreferences>;
+    const opacity =
+      typeof parsed.opacity === 'number' && Number.isFinite(parsed.opacity)
+        ? Math.max(0.2, Math.min(1.0, parsed.opacity))
+        : DEFAULT_CONTROL_PREFS.opacity;
+    const autoThrottle =
+      typeof parsed.autoThrottle === 'boolean'
+        ? parsed.autoThrottle
+        : DEFAULT_CONTROL_PREFS.autoThrottle;
+    return { opacity, autoThrottle };
+  } catch {
+    return { ...DEFAULT_CONTROL_PREFS };
+  }
+}
+
+export function saveControlPreferences(prefs: ControlPreferences): void {
+  try {
+    window.localStorage.setItem(CONTROL_PREFS_STORAGE_KEY, JSON.stringify(prefs));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+

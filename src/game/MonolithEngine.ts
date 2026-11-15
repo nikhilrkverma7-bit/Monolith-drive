@@ -18,6 +18,7 @@ import {
 import { SoundEngine } from './audio';
 import {
   createAsphaltTextures,
+  createHeadlightBeamTexture,
   createSkyDomeShaderMaterial,
   createSoftShadowTexture,
   detectSoftwareWebGL,
@@ -68,6 +69,7 @@ interface ActiveObstacle {
   patrolPhase: number;
   patrolFreq: number;
   nearMissed: boolean;
+  wheels: THREE.Object3D[];
 }
 
 interface SparkParticle {
@@ -100,6 +102,7 @@ export class MonolithEngine {
   private rimLight: THREE.DirectionalLight;
   private asphaltTextures: { map: THREE.CanvasTexture; roughnessMap: THREE.CanvasTexture };
   private shadowTexture: THREE.CanvasTexture;
+  private beamTexture: THREE.CanvasTexture;
   private envRig: HighwayEnvironmentRig;
   private playerRig: PlayerSupercarRig;
   private leftRibbon: LightRibbon;
@@ -161,6 +164,7 @@ export class MonolithEngine {
     down: false,
     boost: false,
   };
+  private autoThrottle = false;
 
   private frameId = 0;
   private isTimeoutId = false;
@@ -254,9 +258,10 @@ export class MonolithEngine {
     const maxAniso = this.renderer.capabilities.getMaxAnisotropy();
     this.asphaltTextures = createAsphaltTextures(maxAniso);
     this.shadowTexture = createSoftShadowTexture();
+    this.beamTexture = createHeadlightBeamTexture();
 
     this.envRig = buildHighwayEnvironment(this.scene, this.asphaltTextures);
-    this.playerRig = buildPlayerSupercar(this.scene, this.shadowTexture);
+    this.playerRig = buildPlayerSupercar(this.scene, this.shadowTexture, this.beamTexture);
     this.weatherSystem = new WeatherSystem(this.scene, SECTORS[0].weather);
 
     this.leftRibbon = this.createLightRibbon(0xff1e42);
@@ -313,7 +318,7 @@ export class MonolithEngine {
     sparkPoints.frustumCulled = false;
     this.scene.add(sparkPoints);
 
-    this.obsMats = createObstacleSharedMaterials();
+    this.obsMats = createObstacleSharedMaterials(this.beamTexture);
     this.scene.add(this.obstaclePoolGroup);
 
     if (!this.isSoftwareGl) {
@@ -465,6 +470,10 @@ export class MonolithEngine {
 
   public setTouchControl(control: keyof KeyState, active: boolean): void {
     this.touches[control] = active;
+  }
+
+  public setAutoThrottle(enabled: boolean): void {
+    this.autoThrottle = enabled;
   }
 
   public startGame(): void {
@@ -671,6 +680,7 @@ export class MonolithEngine {
         patrolPhase: Math.random() * Math.PI * 2,
         patrolFreq: 1.6 + Math.random() * 0.8,
         nearMissed: false,
+        wheels: created.wheels,
       });
     }
   }
@@ -874,8 +884,8 @@ export class MonolithEngine {
     }
 
     // 3. Longitudinal Speed
-    const wantUp = this.keys.up || this.touches.up;
     const wantDown = this.keys.down || this.touches.down;
+    const wantUp = this.keys.up || this.touches.up || (this.autoThrottle && !wantDown);
 
     let targetSpeed = currentMinSpeed + (currentMaxSpeed - currentMinSpeed) * 0.48;
     if (wantUp) targetSpeed = currentMaxSpeed;
@@ -959,8 +969,14 @@ export class MonolithEngine {
       if (w.isFront) {
         w.assembly.rotation.y = THREE.MathUtils.damp(
           w.assembly.rotation.y,
-          -steerInput * 0.28,
+          -steerInput * 0.36,
           16,
+          dt
+        );
+        w.assembly.rotation.z = THREE.MathUtils.damp(
+          w.assembly.rotation.z,
+          -steerInput * 0.09,
+          14,
           dt
         );
       }
@@ -1048,6 +1064,13 @@ export class MonolithEngine {
       }
 
       obs.mesh.position.set(obs.x, 0, obs.z);
+
+      if (obs.wheels.length > 0) {
+        const obsWheelStep = (obs.speed * dt) / 0.36;
+        for (let wi = 0; wi < obs.wheels.length; wi++) {
+          obs.wheels[wi].rotation.x -= obsWheelStep;
+        }
+      }
 
       const dx = Math.abs(this.playerX - obs.x);
       const dzObs = Math.abs(CONFIG.PLAYER_Z - obs.z);
@@ -1286,6 +1309,7 @@ export class MonolithEngine {
     this.asphaltTextures.map.dispose();
     this.asphaltTextures.roughnessMap.dispose();
     this.shadowTexture.dispose();
+    this.beamTexture.dispose();
     this.envRenderTarget?.dispose();
     this.composer?.dispose();
     this.renderer.dispose();

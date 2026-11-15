@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { TelemetrySnapshot } from '../game/constants';
+import { useIsTouchDevice } from '../game/useIsTouchDevice';
 
 interface GameOverlaysProps {
   telemetry: TelemetrySnapshot;
@@ -33,6 +34,8 @@ export const GameOverlays: React.FC<GameOverlaysProps> = ({
   onToggleMute,
   onCustomizeControls,
 }) => {
+  const isTouchDevice = useIsTouchDevice();
+
   if (contextLost) {
     return (
       <div className="fixed inset-0 z-30 flex items-center justify-center bg-[#03050a]/92 p-6">
@@ -55,7 +58,7 @@ export const GameOverlays: React.FC<GameOverlaysProps> = ({
     );
   }
 
-  if (telemetry.status === 'TITLE') {
+  if (telemetry.status === 'TITLE' && !isEditingControls) {
     return (
       <div className="fixed inset-0 z-20 flex flex-col justify-between p-6 sm:p-10 pointer-events-none">
         {/* Top Minimal Utility Row */}
@@ -109,32 +112,48 @@ export const GameOverlays: React.FC<GameOverlaysProps> = ({
             MONOLITH DRIVE
           </h1>
 
-          <p className="text-sm sm:text-base text-slate-300 max-w-md mb-6 leading-relaxed">
-            Thread dense night traffic between towering obsidian monoliths and push into higher sectors.
-          </p>
+          <div className="mb-6 max-w-md px-5 py-2.5 rounded-xl bg-gradient-to-b from-[#03050a]/72 via-[#03050a]/86 to-[#03050a]/72 border border-white/10 shadow-lg">
+            <p className="text-sm sm:text-base text-slate-200 leading-relaxed">
+              Thread dense night traffic between towering obsidian monoliths and push into higher sectors.
+            </p>
+          </div>
 
           {telemetry.bestScore > 0 && (
-            <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-300 mb-6 font-mono-tabular">
+            <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-200 bg-[#03050a]/72 border border-white/8 rounded-lg px-3.5 py-1.5 mb-5 font-mono-tabular">
               <span>Best Score {telemetry.bestScore.toLocaleString()}</span>
               <span aria-hidden="true">·</span>
               <span>Longest Run {telemetry.bestDistance.toLocaleString()} m</span>
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={onStart}
-            className="pointer-events-auto inline-flex items-center gap-2.5 px-8 py-3.5 rounded-lg bg-[#00e5ff] text-slate-950 font-semibold text-sm sm:text-base hover:bg-[#5ef0ff] transition-colors shadow-lg shadow-cyan-500/20 cursor-pointer whitespace-nowrap"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            <span>Start Drive</span>
-          </button>
+          <div className="pointer-events-auto flex flex-col items-center gap-2.5">
+            <button
+              type="button"
+              onClick={onStart}
+              className="inline-flex items-center justify-center gap-2.5 min-w-[208px] px-8 py-3.5 rounded-lg bg-[#00e5ff] text-slate-950 font-semibold text-sm sm:text-base hover:bg-[#5ef0ff] transition-colors shadow-lg shadow-cyan-500/20 cursor-pointer whitespace-nowrap"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>Start Drive</span>
+            </button>
+            <button
+              type="button"
+              onClick={onCustomizeControls}
+              className="inline-flex items-center justify-center gap-2 min-w-[208px] px-5 py-2.5 rounded-lg bg-[#080a10]/88 border border-white/15 text-slate-200 font-medium text-xs sm:text-sm hover:bg-white/14 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#00e5ff]" />
+              <span>Customize Controls</span>
+            </button>
+          </div>
         </div>
 
-        {/* Bottom Single Flat Control Hint Line */}
-        <div className="text-center text-xs text-slate-400 tracking-wide">
-          A / D or Arrows Steer · W / S Throttle & Brake · Space Nitro · C Camera · Esc Pause
-        </div>
+        {/* Bottom Single Flat Control Hint Line (Desktop only) */}
+        {!isTouchDevice ? (
+          <div className="text-center text-xs text-slate-400 tracking-wide">
+            A / D or Arrows Steer · W / S Throttle &amp; Brake · Space Nitro · C Camera · Esc Pause
+          </div>
+        ) : (
+          <div aria-hidden="true" className="h-2" />
+        )}
       </div>
     );
   }

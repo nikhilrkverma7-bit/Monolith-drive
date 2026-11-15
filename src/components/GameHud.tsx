@@ -13,17 +13,30 @@ import {
 import { TelemetrySnapshot } from '../game/constants';
 import {
   clampButtonCenter,
+  ControlPreferences,
   getButtonPixelSize,
   TOUCH_CONTROL_ORDER,
   TouchButtonConfig,
   TouchControlId,
   TouchControlsLayout,
 } from '../game/controlsLayout';
+import { useIsTouchDevice } from '../game/useIsTouchDevice';
 
 interface GameHudProps {
   telemetry: TelemetrySnapshot;
   controlsLayout: TouchControlsLayout;
+  controlPrefs: ControlPreferences;
   onVirtualKey: (code: string, pressed: boolean) => void;
+}
+
+function triggerHaptic(): void {
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(15);
+    }
+  } catch {
+    // Ignore environments that block vibration
+  }
 }
 
 function renderControlIcon(id: TouchControlId, scale: number, accentHex: string) {
@@ -48,6 +61,9 @@ interface PositionedTouchButtonProps {
   viewportH: number;
   accentColor: string;
   isNitroReady: boolean;
+  opacity: number;
+  autoThrottle: boolean;
+  isTouchDevice: boolean;
   onVirtualKey: (code: string, pressed: boolean) => void;
 }
 
@@ -57,6 +73,9 @@ const PositionedTouchButton: React.FC<PositionedTouchButtonProps> = ({
   viewportH,
   accentColor,
   isNitroReady,
+  opacity,
+  autoThrottle,
+  isTouchDevice,
   onVirtualKey,
 }) => {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -100,6 +119,7 @@ const PositionedTouchButton: React.FC<PositionedTouchButtonProps> = ({
     activePointersRef.current.add(e.pointerId);
     if (wasEmpty) {
       setPressed(true);
+      triggerHaptic();
       onVirtualKey(config.keyCode, true);
     }
   };
@@ -123,8 +143,32 @@ const PositionedTouchButton: React.FC<PositionedTouchButtonProps> = ({
     viewportH
   );
 
+  const isBrake = config.id === 'brake';
+  const isThrottle = config.id === 'throttle';
   const isNitro = config.id === 'nitro';
-  const showAccentBorder = (isNitro && isNitroReady) || (pressed && isNitro);
+  const showNitroIdleBorder = isNitro && isNitroReady && !pressed;
+  const showAutoIdle = isThrottle && autoThrottle && !pressed;
+
+  const activeBoxShadow = pressed
+    ? isBrake
+      ? '0 0 22px rgba(244, 63, 94, 0.68), inset 0 0 12px rgba(244, 63, 94, 0.35)'
+      : '0 0 22px rgba(0, 229, 255, 0.68), inset 0 0 12px rgba(0, 229, 255, 0.35)'
+    : undefined;
+
+  const idleBorderColor = showNitroIdleBorder
+    ? accentColor
+    : showAutoIdle
+      ? 'rgba(0, 229, 255, 0.55)'
+      : undefined;
+
+  const effectiveOpacity = pressed ? Math.min(1, Math.max(0.7, opacity + 0.3)) : opacity;
+
+  const pressedClass = isBrake
+    ? 'bg-rose-500/28 border-rose-400 text-rose-100 scale-95'
+    : 'bg-cyan-400/24 border-[#00e5ff] text-white scale-95';
+
+  const subText =
+    isThrottle && autoThrottle ? 'AUTO' : isTouchDevice ? undefined : config.subLabel;
 
   return (
     <button
@@ -144,21 +188,23 @@ const PositionedTouchButton: React.FC<PositionedTouchButtonProps> = ({
         width: `${size.width}px`,
         height: `${size.height}px`,
         borderRadius: size.borderRadius,
-        borderColor: showAccentBorder ? accentColor : undefined,
+        borderColor: pressed ? undefined : idleBorderColor,
+        boxShadow: activeBoxShadow,
+        opacity: effectiveOpacity,
       }}
-      className={`pointer-events-auto touch-none select-none flex flex-col items-center justify-center border transition-transform duration-75 cursor-pointer ${
-        pressed
-          ? 'bg-white/22 border-white/55 text-white scale-95'
-          : 'bg-[#080a10]/52 border-white/15 text-slate-100 hover:bg-[#080a10]/70'
+      className={`pointer-events-auto touch-none select-none flex flex-col items-center justify-center border transition-[transform,box-shadow,background-color,border-color,opacity] duration-75 cursor-pointer ${
+        pressed ? pressedClass : 'bg-[#080a10]/52 border-white/15 text-slate-100 hover:bg-[#080a10]/70'
       }`}
     >
       {renderControlIcon(config.id, config.scale, accentColor)}
-      {config.subLabel && (
+      {subText && (
         <span
-          className="font-mono-tabular leading-none font-medium text-slate-300 mt-0.5"
+          className={`font-mono-tabular leading-none font-medium mt-0.5 ${
+            isThrottle && autoThrottle ? 'text-[#00e5ff]' : 'text-slate-300'
+          }`}
           style={{ fontSize: `${Math.round(10 * Math.min(1.4, Math.max(0.85, config.scale)))}px` }}
         >
-          {config.subLabel}
+          {subText}
         </span>
       )}
     </button>
@@ -200,6 +246,7 @@ const TouchTapButton: React.FC<TouchTapButtonProps> = ({
 
   const triggerTap = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    triggerHaptic();
     onVirtualKey(keyCode, true);
     onVirtualKey(keyCode, false);
   };
@@ -219,7 +266,7 @@ const TouchTapButton: React.FC<TouchTapButtonProps> = ({
         }
       }}
       onContextMenu={(e) => e.preventDefault()}
-      className="touch-none select-none h-11 min-w-[44px] px-2.5 flex items-center justify-center gap-1.5 rounded-lg bg-[#080a10]/55 border border-white/15 text-slate-200 hover:text-white hover:bg-[#080a10]/78 active:bg-white/20 active:scale-95 transition-transform duration-75 cursor-pointer"
+      className="touch-none select-none h-11 min-w-[44px] px-2.5 flex items-center justify-center gap-1.5 rounded-lg bg-[#080a10]/55 border border-white/15 text-slate-200 hover:text-white hover:bg-[#080a10]/78 active:bg-cyan-400/22 active:border-[#00e5ff] active:shadow-[0_0_16px_rgba(0,229,255,0.55)] active:scale-95 transition-[transform,box-shadow,background-color,border-color] duration-75 cursor-pointer"
     >
       {children}
       {badge && (
@@ -234,8 +281,10 @@ const TouchTapButton: React.FC<TouchTapButtonProps> = ({
 export const GameHud: React.FC<GameHudProps> = ({
   telemetry,
   controlsLayout,
+  controlPrefs,
   onVirtualKey,
 }) => {
+  const isTouchDevice = useIsTouchDevice();
   const [viewport, setViewport] = useState(() => ({
     w: typeof window !== 'undefined' ? window.innerWidth : 1280,
     h: typeof window !== 'undefined' ? window.innerHeight : 720,
@@ -309,7 +358,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                 keyCode="KeyC"
                 label={`Switch camera (${cameraLabel})`}
                 title="Switch camera (C)"
-                badge="C"
+                badge={isTouchDevice ? undefined : 'C'}
                 onVirtualKey={onVirtualKey}
               >
                 <Camera className="w-4 h-4" />
@@ -330,7 +379,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                 keyCode="Escape"
                 label="Pause game"
                 title="Pause (Esc)"
-                badge="ESC"
+                badge={isTouchDevice ? undefined : 'ESC'}
                 onVirtualKey={onVirtualKey}
               >
                 <Pause className="w-4 h-4" />
@@ -432,6 +481,9 @@ export const GameHud: React.FC<GameHudProps> = ({
           viewportH={viewport.h}
           accentColor={telemetry.accentHex}
           isNitroReady={telemetry.nitro > 20}
+          opacity={controlPrefs.opacity}
+          autoThrottle={controlPrefs.autoThrottle}
+          isTouchDevice={isTouchDevice}
           onVirtualKey={onVirtualKey}
         />
       ))}

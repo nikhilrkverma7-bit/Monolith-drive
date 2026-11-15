@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadBestStats, SECTORS, TelemetrySnapshot } from './game/constants';
 import {
+  ControlPreferences,
+  loadControlPreferences,
   loadControlsLayout,
+  saveControlPreferences,
   saveControlsLayout,
   TouchControlsLayout,
 } from './game/controlsLayout';
@@ -45,6 +48,9 @@ export default function App() {
   const [controlsLayout, setControlsLayout] = useState<TouchControlsLayout>(() =>
     loadControlsLayout()
   );
+  const [controlPrefs, setControlPrefs] = useState<ControlPreferences>(() =>
+    loadControlPreferences()
+  );
   const [isEditingControls, setIsEditingControls] = useState(false);
 
   useEffect(() => {
@@ -60,6 +66,7 @@ export default function App() {
         setContextLost(lost);
       }
     );
+    engine.setAutoThrottle(controlPrefs.autoThrottle);
     engineRef.current = engine;
 
     return () => {
@@ -68,9 +75,14 @@ export default function App() {
     };
   }, []);
 
-  // Automatically close controls editor if game leaves PAUSED state (e.g. via Esc)
+  // Keep engine auto-throttle synced whenever preferences change
   useEffect(() => {
-    if (telemetry.status !== 'PAUSED' && isEditingControls) {
+    engineRef.current?.setAutoThrottle(controlPrefs.autoThrottle);
+  }, [controlPrefs.autoThrottle]);
+
+  // Automatically close controls editor if game leaves TITLE/PAUSED states (e.g. via Esc or starting a run)
+  useEffect(() => {
+    if (telemetry.status !== 'PAUSED' && telemetry.status !== 'TITLE' && isEditingControls) {
       setIsEditingControls(false);
     }
   }, [telemetry.status, isEditingControls]);
@@ -106,11 +118,16 @@ export default function App() {
     setIsEditingControls(true);
   }, []);
 
-  const handleSaveControlsLayout = useCallback((nextLayout: TouchControlsLayout) => {
-    setControlsLayout(nextLayout);
-    saveControlsLayout(nextLayout);
-    setIsEditingControls(false);
-  }, []);
+  const handleSaveControlsLayout = useCallback(
+    (nextLayout: TouchControlsLayout, nextPrefs: ControlPreferences) => {
+      setControlsLayout(nextLayout);
+      saveControlsLayout(nextLayout);
+      setControlPrefs(nextPrefs);
+      saveControlPreferences(nextPrefs);
+      setIsEditingControls(false);
+    },
+    []
+  );
 
   const handleCancelControlsEdit = useCallback(() => {
     setIsEditingControls(false);
@@ -126,19 +143,23 @@ export default function App() {
         <GameHud
           telemetry={telemetry}
           controlsLayout={controlsLayout}
+          controlPrefs={controlPrefs}
           onVirtualKey={handleVirtualKey}
         />
       )}
 
-      {/* Live Drag-and-Drop Controls Layout Editor */}
-      {telemetry.status === 'PAUSED' && isEditingControls && !contextLost && (
-        <ControlsEditor
-          initialLayout={controlsLayout}
-          accentHex={telemetry.accentHex}
-          onSave={handleSaveControlsLayout}
-          onCancel={handleCancelControlsEdit}
-        />
-      )}
+      {/* Live Drag-and-Drop Controls Layout Editor (accessible from Title or Pause) */}
+      {(telemetry.status === 'PAUSED' || telemetry.status === 'TITLE') &&
+        isEditingControls &&
+        !contextLost && (
+          <ControlsEditor
+            initialLayout={controlsLayout}
+            initialPrefs={controlPrefs}
+            accentHex={telemetry.accentHex}
+            onSave={handleSaveControlsLayout}
+            onCancel={handleCancelControlsEdit}
+          />
+        )}
 
       {/* Title, Pause, Game Over & Context Loss Overlays */}
       <GameOverlays
