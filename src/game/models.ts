@@ -22,6 +22,7 @@ export interface PlayerSupercarRig {
 
 export interface HighwayEnvironmentRig {
   roadGroup: THREE.Group;
+  roadMat: THREE.MeshStandardMaterial;
   laneDashes: THREE.Mesh[];
   gantries: Array<{ group: THREE.Group; poolMat: THREE.MeshBasicMaterial }>;
   monoliths: THREE.Group[];
@@ -254,6 +255,7 @@ export function buildHighwayEnvironment(
 
   return {
     roadGroup,
+    roadMat,
     laneDashes,
     gantries,
     monoliths,

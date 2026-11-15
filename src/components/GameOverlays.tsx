@@ -1,25 +1,37 @@
 import React from 'react';
-import { Play, RotateCcw, Camera, Volume2, VolumeX, Home } from 'lucide-react';
+import {
+  Play,
+  RotateCcw,
+  Camera,
+  Volume2,
+  VolumeX,
+  Home,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { TelemetrySnapshot } from '../game/constants';
 
 interface GameOverlaysProps {
   telemetry: TelemetrySnapshot;
   contextLost: boolean;
+  isEditingControls: boolean;
   onStart: () => void;
   onResume: () => void;
   onReturnTitle: () => void;
   onCycleCamera: () => void;
   onToggleMute: () => void;
+  onCustomizeControls: () => void;
 }
 
 export const GameOverlays: React.FC<GameOverlaysProps> = ({
   telemetry,
   contextLost,
+  isEditingControls,
   onStart,
   onResume,
   onReturnTitle,
   onCycleCamera,
   onToggleMute,
+  onCustomizeControls,
 }) => {
   if (contextLost) {
     return (
@@ -127,12 +139,12 @@ export const GameOverlays: React.FC<GameOverlaysProps> = ({
     );
   }
 
-  if (telemetry.status === 'PAUSED') {
+  if (telemetry.status === 'PAUSED' && !isEditingControls) {
     return (
       <div className="fixed inset-0 z-20 flex items-center justify-center bg-[#03050a]/72 p-6">
         <div className="w-full max-w-sm bg-[#090c12] border border-white/12 rounded-xl p-6">
           <div className="text-xs font-medium mb-1" style={{ color: telemetry.accentHex }}>
-            {telemetry.sectorLabel}
+            {telemetry.sectorLabel} · {telemetry.weatherLabel}
           </div>
           <h2 className="font-display text-2xl font-bold text-white mb-5">Drive Paused</h2>
 
@@ -157,6 +169,14 @@ export const GameOverlays: React.FC<GameOverlaysProps> = ({
             >
               <RotateCcw className="w-4 h-4" />
               <span>Restart Run</span>
+            </button>
+            <button
+              type="button"
+              onClick={onCustomizeControls}
+              className="w-full h-10 flex items-center justify-center gap-2 rounded-lg bg-white/8 border border-white/10 text-slate-100 font-medium text-xs hover:bg-white/14 transition-colors cursor-pointer"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" style={{ color: telemetry.accentHex }} />
+              <span>Customize Controls</span>
             </button>
             <div className="grid grid-cols-2 gap-2.5">
               <button
@@ -205,7 +225,7 @@ export const GameOverlays: React.FC<GameOverlaysProps> = ({
         <div className="w-full max-w-md bg-[#090c12] border border-white/12 rounded-xl p-6 sm:p-7">
           <div className="flex items-center justify-between gap-2 mb-1">
             <span className="text-xs font-medium" style={{ color: telemetry.accentHex }}>
-              {telemetry.sectorLabel}
+              {telemetry.sectorLabel} · {telemetry.weatherLabel}
             </span>
             {telemetry.isNewRecord && (
               <span className="text-xs font-semibold text-amber-300">New Best Record</span>

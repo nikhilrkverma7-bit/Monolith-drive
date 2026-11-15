@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadBestStats, SECTORS, TelemetrySnapshot } from './game/constants';
+import {
+  loadControlsLayout,
+  saveControlsLayout,
+  TouchControlsLayout,
+} from './game/controlsLayout';
 import { MonolithEngine } from './game/MonolithEngine';
 import { GameHud } from './components/GameHud';
 import { GameOverlays } from './components/GameOverlays';
+import { ControlsEditor } from './components/ControlsEditor';
 
 function createInitialTelemetry(): TelemetrySnapshot {
   const best = loadBestStats();
@@ -20,6 +26,7 @@ function createInitialTelemetry(): TelemetrySnapshot {
     nearMissCount: 0,
     sectorIndex: 0,
     sectorLabel: SECTORS[0].label,
+    weatherLabel: SECTORS[0].weather.label,
     accentHex: SECTORS[0].accentHex,
     cameraMode: 'CHASE',
     isMuted: false,
@@ -35,6 +42,10 @@ export default function App() {
   const engineRef = useRef<MonolithEngine | null>(null);
   const [telemetry, setTelemetry] = useState<TelemetrySnapshot>(createInitialTelemetry);
   const [contextLost, setContextLost] = useState(false);
+  const [controlsLayout, setControlsLayout] = useState<TouchControlsLayout>(() =>
+    loadControlsLayout()
+  );
+  const [isEditingControls, setIsEditingControls] = useState(false);
 
   useEffect(() => {
     const mountEl = canvasMountRef.current;
@@ -57,15 +68,25 @@ export default function App() {
     };
   }, []);
 
+  // Automatically close controls editor if game leaves PAUSED state (e.g. via Esc)
+  useEffect(() => {
+    if (telemetry.status !== 'PAUSED' && isEditingControls) {
+      setIsEditingControls(false);
+    }
+  }, [telemetry.status, isEditingControls]);
+
   const handleStart = useCallback(() => {
+    setIsEditingControls(false);
     engineRef.current?.startGame();
   }, []);
 
   const handleResume = useCallback(() => {
+    setIsEditingControls(false);
     engineRef.current?.resumeGame();
   }, []);
 
   const handleReturnTitle = useCallback(() => {
+    setIsEditingControls(false);
     engineRef.current?.returnToTitle();
   }, []);
 
@@ -81,6 +102,20 @@ export default function App() {
     engineRef.current?.dispatchVirtualKey(code, pressed);
   }, []);
 
+  const handleCustomizeControls = useCallback(() => {
+    setIsEditingControls(true);
+  }, []);
+
+  const handleSaveControlsLayout = useCallback((nextLayout: TouchControlsLayout) => {
+    setControlsLayout(nextLayout);
+    saveControlsLayout(nextLayout);
+    setIsEditingControls(false);
+  }, []);
+
+  const handleCancelControlsEdit = useCallback(() => {
+    setIsEditingControls(false);
+  }, []);
+
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-[#03050a] touch-none select-none">
       {/* Isolated WebGL Canvas Container */}
@@ -90,7 +125,18 @@ export default function App() {
       {telemetry.status === 'PLAYING' && !contextLost && (
         <GameHud
           telemetry={telemetry}
+          controlsLayout={controlsLayout}
           onVirtualKey={handleVirtualKey}
+        />
+      )}
+
+      {/* Live Drag-and-Drop Controls Layout Editor */}
+      {telemetry.status === 'PAUSED' && isEditingControls && !contextLost && (
+        <ControlsEditor
+          initialLayout={controlsLayout}
+          accentHex={telemetry.accentHex}
+          onSave={handleSaveControlsLayout}
+          onCancel={handleCancelControlsEdit}
         />
       )}
 
@@ -98,11 +144,13 @@ export default function App() {
       <GameOverlays
         telemetry={telemetry}
         contextLost={contextLost}
+        isEditingControls={isEditingControls}
         onStart={handleStart}
         onResume={handleResume}
         onReturnTitle={handleReturnTitle}
         onCycleCamera={handleCycleCamera}
         onToggleMute={handleToggleMute}
+        onCustomizeControls={handleCustomizeControls}
       />
     </main>
   );

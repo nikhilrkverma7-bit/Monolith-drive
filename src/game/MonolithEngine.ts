@@ -31,6 +31,7 @@ import {
   ObstacleSharedMaterials,
   PlayerSupercarRig,
 } from './models';
+import { WeatherSystem } from './weather';
 
 // Pre-allocated scratch math helpers (zero per-frame allocations)
 const _targetSkyTop = new THREE.Color();
@@ -115,6 +116,7 @@ export class MonolithEngine {
   private obstaclePoolGroup = new THREE.Group();
   private obsMats: ObstacleSharedMaterials;
   private obstacles: ActiveObstacle[] = [];
+  private weatherSystem: WeatherSystem;
 
   private sound = new SoundEngine();
 
@@ -255,6 +257,7 @@ export class MonolithEngine {
 
     this.envRig = buildHighwayEnvironment(this.scene, this.asphaltTextures);
     this.playerRig = buildPlayerSupercar(this.scene, this.shadowTexture);
+    this.weatherSystem = new WeatherSystem(this.scene, SECTORS[0].weather);
 
     this.leftRibbon = this.createLightRibbon(0xff1e42);
     this.rightRibbon = this.createLightRibbon(0xff1e42);
@@ -550,7 +553,11 @@ export class MonolithEngine {
     this.skyMat.uniforms.glowColor.value.setHex(s0.accent);
     if (this.scene.fog instanceof THREE.FogExp2) {
       this.scene.fog.color.setHex(s0.fog);
+      this.scene.fog.density = s0.weather.fogDensity;
     }
+    this.envRig.roadMat.roughness = s0.weather.roadRoughness;
+    this.envRig.roadMat.metalness = s0.weather.roadMetalness;
+    this.weatherSystem.resetImmediate(s0.weather);
     this.dirLight.color.setHex(s0.sunColor);
     this.rimLight.color.setHex(s0.accent);
     this.envRig.railEdgeMat.color.setHex(s0.accent);
@@ -805,6 +812,14 @@ export class MonolithEngine {
       const cruiseSpeed = this.status === 'GAMEOVER' ? 8 : 28;
       const dz = cruiseSpeed * dt;
       this.scrollWorldGeometry(dz);
+      this.weatherSystem.update(
+        dt,
+        cruiseSpeed,
+        this.playerRig.root.position.x,
+        SECTORS[this.sectorIndex].weather,
+        this.scene.fog instanceof THREE.FogExp2 ? this.scene.fog : null,
+        this.envRig.roadMat
+      );
 
       for (let i = 0; i < this.playerRig.wheels.length; i++) {
         this.playerRig.wheels[i].spinner.rotation.x -= dz / 0.37;
@@ -969,6 +984,14 @@ export class MonolithEngine {
     this.score += dz * (this.isBoosting ? 1.55 : 1.0) * (1 + (this.combo - 1) * 0.25);
 
     this.scrollWorldGeometry(dz);
+    this.weatherSystem.update(
+      dt,
+      this.speed,
+      this.playerX,
+      SECTORS[this.sectorIndex].weather,
+      this.scene.fog instanceof THREE.FogExp2 ? this.scene.fog : null,
+      this.envRig.roadMat
+    );
     this.particleMat.opacity = this.isBoosting ? 0.85 : 0.45;
 
     this.updateRibbonGeometry(
@@ -1162,6 +1185,7 @@ export class MonolithEngine {
       nearMissCount: this.nearMissCount,
       sectorIndex: this.sectorIndex,
       sectorLabel: sector.label,
+      weatherLabel: sector.weather.label,
       accentHex: sector.accentHex,
       cameraMode: camMode,
       isMuted: this.sound.isMuted(),
@@ -1246,6 +1270,7 @@ export class MonolithEngine {
     this.renderer.domElement.removeEventListener('webglcontextrestored', this.handleContextRestored);
 
     this.sound.dispose();
+    this.weatherSystem.dispose();
 
     this.scene.traverse((obj) => {
       if (obj instanceof THREE.Mesh || obj instanceof THREE.Points) {

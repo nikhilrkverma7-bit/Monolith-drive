@@ -1,5 +1,23 @@
 export type CameraMode = 'CHASE' | 'BUMPER' | 'HOOD';
 export type GameStatus = 'TITLE' | 'PLAYING' | 'PAUSED' | 'GAMEOVER';
+export type WeatherKind = 'RAIN' | 'HAZE' | 'SNOW' | 'STORM';
+
+export interface SectorWeatherProfile {
+  kind: WeatherKind;
+  label: string;
+  fogDensity: number;
+  rainOpacity: number;
+  rainSpeed: number;
+  windX: number;
+  flurryOpacity: number;
+  flurrySize: number;
+  mistOpacity: number;
+  roadRoughness: number;
+  roadMetalness: number;
+  precipColor: number;
+  mistColor: number;
+  sprayIntensity: number;
+}
 
 export interface SectorPalette {
   id: string;
@@ -13,6 +31,7 @@ export interface SectorPalette {
   roadTint: number;
   monolith: number;
   sunColor: number;
+  weather: SectorWeatherProfile;
 }
 
 export interface KeyState {
@@ -37,6 +56,7 @@ export interface TelemetrySnapshot {
   nearMissCount: number;
   sectorIndex: number;
   sectorLabel: string;
+  weatherLabel: string;
   accentHex: string;
   cameraMode: CameraMode;
   isMuted: boolean;
@@ -76,6 +96,22 @@ export const SECTORS: SectorPalette[] = [
     roadTint: 0x161922,
     monolith: 0x0b0d13,
     sunColor: 0x66d9ff,
+    weather: {
+      kind: 'RAIN',
+      label: 'Light Rain',
+      fogDensity: 0.0058,
+      rainOpacity: 0.38,
+      rainSpeed: 28,
+      windX: -2.2,
+      flurryOpacity: 0.0,
+      flurrySize: 0.16,
+      mistOpacity: 0.12,
+      roadRoughness: 0.30,
+      roadMetalness: 0.36,
+      precipColor: 0xa5e8ff,
+      mistColor: 0x2c4b6e,
+      sprayIntensity: 0.5,
+    },
   },
   {
     id: 'solar-dusk',
@@ -89,6 +125,22 @@ export const SECTORS: SectorPalette[] = [
     roadTint: 0x1e161d,
     monolith: 0x130b12,
     sunColor: 0xffb74d,
+    weather: {
+      kind: 'HAZE',
+      label: 'Amber Haze',
+      fogDensity: 0.0079,
+      rainOpacity: 0.0,
+      rainSpeed: 12,
+      windX: 3.8,
+      flurryOpacity: 0.55,
+      flurrySize: 0.18,
+      mistOpacity: 0.24,
+      roadRoughness: 0.48,
+      roadMetalness: 0.22,
+      precipColor: 0xffc875,
+      mistColor: 0x6e3138,
+      sprayIntensity: 0.0,
+    },
   },
   {
     id: 'arctic-cobalt',
@@ -102,6 +154,22 @@ export const SECTORS: SectorPalette[] = [
     roadTint: 0x19212c,
     monolith: 0x0e1520,
     sunColor: 0xbae6fd,
+    weather: {
+      kind: 'SNOW',
+      label: 'Ice Flurries',
+      fogDensity: 0.0092,
+      rainOpacity: 0.08,
+      rainSpeed: 14,
+      windX: -5.4,
+      flurryOpacity: 0.78,
+      flurrySize: 0.26,
+      mistOpacity: 0.28,
+      roadRoughness: 0.22,
+      roadMetalness: 0.44,
+      precipColor: 0xe0f2fe,
+      mistColor: 0x3a648c,
+      sprayIntensity: 0.25,
+    },
   },
   {
     id: 'crimson-midnight',
@@ -115,6 +183,22 @@ export const SECTORS: SectorPalette[] = [
     roadTint: 0x1c1418,
     monolith: 0x12090d,
     sunColor: 0xff6b8b,
+    weather: {
+      kind: 'STORM',
+      label: 'Storm Rain',
+      fogDensity: 0.0085,
+      rainOpacity: 0.72,
+      rainSpeed: 40,
+      windX: 4.5,
+      flurryOpacity: 0.35,
+      flurrySize: 0.16,
+      mistOpacity: 0.22,
+      roadRoughness: 0.18,
+      roadMetalness: 0.52,
+      precipColor: 0xff9eb5,
+      mistColor: 0x52182b,
+      sprayIntensity: 1.0,
+    },
   },
 ];
 
