@@ -144,6 +144,7 @@ export class MonolithEngine {
   private crashPending = false;
   private cameraModeIndex = 0;
 
+  private activeKeyCodes = new Set<string>();
   private keys: KeyState = {
     left: false,
     right: false,
@@ -380,12 +381,24 @@ export class MonolithEngine {
     }
   };
 
+  private syncKeysFromCodes(): void {
+    this.keys.left =
+      this.activeKeyCodes.has('ArrowLeft') || this.activeKeyCodes.has('KeyA');
+    this.keys.right =
+      this.activeKeyCodes.has('ArrowRight') || this.activeKeyCodes.has('KeyD');
+    this.keys.up =
+      this.activeKeyCodes.has('ArrowUp') || this.activeKeyCodes.has('KeyW');
+    this.keys.down =
+      this.activeKeyCodes.has('ArrowDown') || this.activeKeyCodes.has('KeyS');
+    this.keys.boost =
+      this.activeKeyCodes.has('Space') ||
+      this.activeKeyCodes.has('ShiftLeft') ||
+      this.activeKeyCodes.has('ShiftRight');
+  }
+
   private handleBlur = (): void => {
-    this.keys.left = false;
-    this.keys.right = false;
-    this.keys.up = false;
-    this.keys.down = false;
-    this.keys.boost = false;
+    this.activeKeyCodes.clear();
+    this.syncKeysFromCodes();
     this.touches.left = false;
     this.touches.right = false;
     this.touches.up = false;
@@ -403,18 +416,14 @@ export class MonolithEngine {
       code === 'ArrowDown' ||
       code === 'Space'
     ) {
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
     }
 
-    if (code === 'ArrowLeft' || code === 'KeyA') this.keys.left = true;
-    if (code === 'ArrowRight' || code === 'KeyD') this.keys.right = true;
-    if (code === 'ArrowUp' || code === 'KeyW') this.keys.up = true;
-    if (code === 'ArrowDown' || code === 'KeyS') this.keys.down = true;
-    if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') {
-      this.keys.boost = true;
-    }
+    const wasHeld = this.activeKeyCodes.has(code);
+    this.activeKeyCodes.add(code);
+    this.syncKeysFromCodes();
 
-    if (!e.repeat) {
+    if (!e.repeat && !wasHeld) {
       if (code === 'KeyC') {
         this.cycleCamera();
       } else if (code === 'KeyM') {
@@ -434,15 +443,22 @@ export class MonolithEngine {
   };
 
   private handleKeyUp = (e: KeyboardEvent): void => {
-    const code = e.code;
-    if (code === 'ArrowLeft' || code === 'KeyA') this.keys.left = false;
-    if (code === 'ArrowRight' || code === 'KeyD') this.keys.right = false;
-    if (code === 'ArrowUp' || code === 'KeyW') this.keys.up = false;
-    if (code === 'ArrowDown' || code === 'KeyS') this.keys.down = false;
-    if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') {
-      this.keys.boost = false;
-    }
+    this.activeKeyCodes.delete(e.code);
+    this.syncKeysFromCodes();
   };
+
+  public dispatchVirtualKey(code: string, pressed: boolean): void {
+    const event = new KeyboardEvent(pressed ? 'keydown' : 'keyup', {
+      code,
+      bubbles: true,
+      cancelable: true,
+    });
+    if (pressed) {
+      this.handleKeyDown(event);
+    } else {
+      this.handleKeyUp(event);
+    }
+  }
 
   public setTouchControl(control: keyof KeyState, active: boolean): void {
     this.touches[control] = active;

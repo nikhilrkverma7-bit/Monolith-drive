@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyState, loadBestStats, SECTORS, TelemetrySnapshot } from './game/constants';
+import { loadBestStats, SECTORS, TelemetrySnapshot } from './game/constants';
 import { MonolithEngine } from './game/MonolithEngine';
 import { GameHud } from './components/GameHud';
 import { GameOverlays } from './components/GameOverlays';
@@ -61,10 +61,6 @@ export default function App() {
     engineRef.current?.startGame();
   }, []);
 
-  const handlePause = useCallback(() => {
-    engineRef.current?.pauseGame();
-  }, []);
-
   const handleResume = useCallback(() => {
     engineRef.current?.resumeGame();
   }, []);
@@ -81,12 +77,12 @@ export default function App() {
     engineRef.current?.toggleMute();
   }, []);
 
-  const handleTouchControl = useCallback((control: keyof KeyState, active: boolean) => {
-    engineRef.current?.setTouchControl(control, active);
+  const handleVirtualKey = useCallback((code: string, pressed: boolean) => {
+    engineRef.current?.dispatchVirtualKey(code, pressed);
   }, []);
 
   return (
-    <main className="relative w-screen h-screen overflow-hidden bg-[#03050a]">
+    <main className="relative w-screen h-screen overflow-hidden bg-[#03050a] touch-none select-none">
       {/* Isolated WebGL Canvas Container */}
       <div ref={canvasMountRef} className="absolute inset-0 w-full h-full" />
 
@@ -94,10 +90,7 @@ export default function App() {
       {telemetry.status === 'PLAYING' && !contextLost && (
         <GameHud
           telemetry={telemetry}
-          onToggleMute={handleToggleMute}
-          onCycleCamera={handleCycleCamera}
-          onPause={handlePause}
-          onTouchControl={handleTouchControl}
+          onVirtualKey={handleVirtualKey}
         />
       )}
 
